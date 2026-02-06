@@ -98,8 +98,60 @@ class ExportData(BaseModel):
     export_date: str
 
 class ImportData(BaseModel):
+    profile_id: str
     entries: List[dict]
     goals: List[dict]
+
+# Profile endpoints
+@api_router.post("/profiles", response_model=ProfileResponse)
+async def create_profile(profile_data: ProfileCreate):
+    # Check if name already exists
+    existing = await db.profiles.find_one({"name": profile_data.name.strip().lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Profile name already exists")
+    
+    # Validate PIN (4-6 digits)
+    if not profile_data.pin.isdigit() or len(profile_data.pin) < 4 or len(profile_data.pin) > 6:
+        raise HTTPException(status_code=400, detail="PIN must be 4-6 digits")
+    
+    profile = Profile(
+        name=profile_data.name.strip().lower(),
+        pin_hash=hash_pin(profile_data.pin)
+    )
+    await db.profiles.insert_one(profile.dict())
+    return ProfileResponse(id=profile.id, name=profile_data.name.strip(), created_at=profile.created_at)
+
+@api_router.post("/profiles/login", response_model=ProfileResponse)
+async def login_profile(login_data: ProfileLogin):
+    profile = await db.profiles.find_one({"name": login_data.name.strip().lower()})
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    if profile["pin_hash"] != hash_pin(login_data.pin):
+        raise HTTPException(status_code=401, detail="Incorrect PIN")
+    
+    return ProfileResponse(id=profile["id"], name=login_data.name.strip(), created_at=profile["created_at"])
+
+@api_router.get("/profiles", response_model=List[ProfileResponse])
+async def list_profiles():
+    profiles = await db.profiles.find().to_list(100)
+    return [ProfileResponse(id=p["id"], name=p["name"], created_at=p["created_at"]) for p in profiles]
+
+@api_router.delete("/profiles/{profile_id}")
+async def delete_profile(profile_id: str, pin: str):
+    profile = await db.profiles.find_one({"id": profile_id})
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    if profile["pin_hash"] != hash_pin(pin):
+        raise HTTPException(status_code=401, detail="Incorrect PIN")
+    
+    # Delete profile and all associated data
+    await db.profiles.delete_one({"id": profile_id})
+    await db.entries.delete_many({"profile_id": profile_id})
+    await db.goals.delete_many({"profile_id": profile_id})
+    
+    return {"message": "Profile and all data deleted"}
 
 # Root endpoint
 @api_router.get("/")
