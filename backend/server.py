@@ -166,8 +166,8 @@ async def create_entry(entry_data: EntryCreate):
     return entry
 
 @api_router.get("/entries", response_model=List[Entry])
-async def get_entries(year: Optional[int] = None, month: Optional[int] = None):
-    query = {}
+async def get_entries(profile_id: str, year: Optional[int] = None, month: Optional[int] = None):
+    query = {"profile_id": profile_id}
     if year and month:
         # Filter by year-month prefix in date string
         month_str = f"{year}-{month:02d}"
@@ -177,8 +177,8 @@ async def get_entries(year: Optional[int] = None, month: Optional[int] = None):
     return [Entry(**entry) for entry in entries]
 
 @api_router.get("/entries/date/{date}", response_model=List[Entry])
-async def get_entries_by_date(date: str):
-    entries = await db.entries.find({"date": date}).to_list(100)
+async def get_entries_by_date(date: str, profile_id: str):
+    entries = await db.entries.find({"date": date, "profile_id": profile_id}).to_list(100)
     return [Entry(**entry) for entry in entries]
 
 @api_router.put("/entries/{entry_id}", response_model=Entry)
@@ -203,8 +203,9 @@ async def delete_entry(entry_id: str):
 # Goal endpoints
 @api_router.post("/goals", response_model=Goal)
 async def set_goal(goal_data: GoalCreate):
-    # Check if goal exists for this month/year
+    # Check if goal exists for this profile/month/year
     existing = await db.goals.find_one({
+        "profile_id": goal_data.profile_id,
         "year": goal_data.year,
         "month": goal_data.month
     })
@@ -212,10 +213,10 @@ async def set_goal(goal_data: GoalCreate):
     if existing:
         # Update existing goal
         await db.goals.update_one(
-            {"year": goal_data.year, "month": goal_data.month},
+            {"profile_id": goal_data.profile_id, "year": goal_data.year, "month": goal_data.month},
             {"$set": {"hours_goal": goal_data.hours_goal}}
         )
-        updated = await db.goals.find_one({"year": goal_data.year, "month": goal_data.month})
+        updated = await db.goals.find_one({"profile_id": goal_data.profile_id, "year": goal_data.year, "month": goal_data.month})
         return Goal(**updated)
     else:
         # Create new goal
@@ -223,20 +224,23 @@ async def set_goal(goal_data: GoalCreate):
         await db.goals.insert_one(goal.dict())
         return goal
 
-@api_router.get("/goals/{year}/{month}", response_model=Optional[Goal])
-async def get_goal(year: int, month: int):
-    goal = await db.goals.find_one({"year": year, "month": month})
+@api_router.get("/goals/{profile_id}/{year}/{month}", response_model=Optional[Goal])
+async def get_goal(profile_id: str, year: int, month: int):
+    goal = await db.goals.find_one({"profile_id": profile_id, "year": year, "month": month})
     if goal:
         return Goal(**goal)
     return None
 
 # Monthly summary endpoint
-@api_router.get("/summary/{year}/{month}", response_model=MonthlySummary)
-async def get_monthly_summary(year: int, month: int):
+@api_router.get("/summary/{profile_id}/{year}/{month}", response_model=MonthlySummary)
+async def get_monthly_summary(profile_id: str, year: int, month: int):
     month_str = f"{year}-{month:02d}"
     
-    # Get all entries for the month
-    entries = await db.entries.find({"date": {"$regex": f"^{month_str}"}}).to_list(1000)
+    # Get all entries for the month for this profile
+    entries = await db.entries.find({
+        "profile_id": profile_id,
+        "date": {"$regex": f"^{month_str}"}
+    }).to_list(1000)
     
     # Calculate totals
     total_minutes = 0
@@ -254,7 +258,7 @@ async def get_monthly_summary(year: int, month: int):
     remaining_minutes = total_minutes % 60
     
     # Get goal for the month
-    goal = await db.goals.find_one({"year": year, "month": month})
+    goal = await db.goals.find_one({"profile_id": profile_id, "year": year, "month": month})
     hours_goal = goal["hours_goal"] if goal else 30  # Default 30 hours
     
     return MonthlySummary(
@@ -268,11 +272,11 @@ async def get_monthly_summary(year: int, month: int):
         entries_count=len(entries)
     )
 
-# History endpoint - get all months with data
-@api_router.get("/history")
-async def get_history():
-    # Get all unique year-month combinations
-    entries = await db.entries.find({}, {"date": 1}).to_list(10000)
+# History endpoint - get all months with data for a profile
+@api_router.get("/history/{profile_id}")
+async def get_history(profile_id: str):
+    # Get all unique year-month combinations for this profile
+    entries = await db.entries.find({"profile_id": profile_id}, {"date": 1}).to_list(10000)
     
     months_data = {}
     for entry in entries:
@@ -291,16 +295,16 @@ async def get_history():
     # Get summary for each month
     history = []
     for m in sorted_months:
-        summary = await get_monthly_summary(m["year"], m["month"])
+        summary = await get_monthly_summary(profile_id, m["year"], m["month"])
         history.append(summary)
     
     return history
 
 # Export endpoint
-@api_router.get("/export")
-async def export_data():
-    entries = await db.entries.find().to_list(10000)
-    goals = await db.goals.find().to_list(1000)
+@api_router.get("/export/{profile_id}")
+async def export_data(profile_id: str):
+    entries = await db.entries.find({"profile_id": profile_id}).to_list(10000)
+    goals = await db.goals.find({"profile_id": profile_id}).to_list(1000)
     
     # Convert datetime objects to strings for JSON serialization
     for entry in entries:
@@ -326,9 +330,13 @@ async def export_data():
 async def import_data(data: ImportData):
     imported_entries = 0
     imported_goals = 0
+    profile_id = data.profile_id
     
     # Import entries
     for entry_data in data.entries:
+        # Set the profile_id to current profile
+        entry_data["profile_id"] = profile_id
+        
         # Check if entry with same id exists
         if "id" in entry_data:
             existing = await db.entries.find_one({"id": entry_data["id"]})
@@ -348,8 +356,12 @@ async def import_data(data: ImportData):
     
     # Import goals
     for goal_data in data.goals:
+        # Set the profile_id to current profile
+        goal_data["profile_id"] = profile_id
+        
         # Check if goal for this year/month exists
         existing = await db.goals.find_one({
+            "profile_id": profile_id,
             "year": goal_data.get("year"),
             "month": goal_data.get("month")
         })
