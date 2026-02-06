@@ -15,11 +15,13 @@ import {
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { format, parseISO } from 'date-fns';
+import { useProfile } from '../context/ProfileContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 interface Entry {
   id: string;
+  profile_id: string;
   date: string;
   hours: number;
   minutes: number;
@@ -30,6 +32,7 @@ interface Entry {
 export default function DayScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
+  const { profile } = useProfile();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -43,8 +46,9 @@ export default function DayScreen() {
   const [saving, setSaving] = useState(false);
 
   const fetchEntries = async () => {
+    if (!profile) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/entries/date/${date}`);
+      const res = await fetch(`${BACKEND_URL}/api/entries/date/${date}?profile_id=${profile.id}`);
       if (res.ok) {
         const data = await res.json();
         setEntries(data);
@@ -59,7 +63,7 @@ export default function DayScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchEntries();
-    }, [date])
+    }, [date, profile])
   );
 
   const resetForm = () => {
@@ -85,9 +89,11 @@ export default function DayScreen() {
   };
 
   const handleSave = async () => {
+    if (!profile) return;
     setSaving(true);
     try {
       const entryData = {
+        profile_id: profile.id,
         date,
         hours: parseInt(hours) || 0,
         minutes: parseInt(minutes) || 0,
