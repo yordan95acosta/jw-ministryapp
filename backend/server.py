@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import datetime
+import hashlib
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,8 +26,32 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Helper function to hash PIN
+def hash_pin(pin: str) -> str:
+    return hashlib.sha256(pin.encode()).hexdigest()
+
 # Define Models
+class ProfileCreate(BaseModel):
+    name: str
+    pin: str  # 4-6 digit PIN
+
+class ProfileLogin(BaseModel):
+    name: str
+    pin: str
+
+class Profile(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    pin_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProfileResponse(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+
 class EntryCreate(BaseModel):
+    profile_id: str
     date: str  # YYYY-MM-DD format
     hours: int = 0
     minutes: int = 0
@@ -35,6 +60,7 @@ class EntryCreate(BaseModel):
 
 class Entry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    profile_id: str
     date: str
     hours: int = 0
     minutes: int = 0
@@ -43,12 +69,14 @@ class Entry(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class GoalCreate(BaseModel):
+    profile_id: str
     year: int
     month: int  # 1-12
     hours_goal: int  # Target hours for the month
 
 class Goal(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    profile_id: str
     year: int
     month: int
     hours_goal: int
