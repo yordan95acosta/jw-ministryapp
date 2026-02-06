@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useProfile } from './context/ProfileContext';
+import { useProfile } from '../src/context/ProfileContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -33,7 +33,6 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Profile Card */}
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
@@ -43,10 +42,13 @@ export default function ProfileScreen() {
         <Text style={styles.profileName}>
           {profile?.name ? profile.name.charAt(0).toUpperCase() + profile.name.slice(1) : 'Unknown'}
         </Text>
-        <Text style={styles.profileSubtext}>Your personal ministry tracker</Text>
+        <View style={styles.offlineBadge}>
+          <Ionicons name="phone-portrait-outline" size={14} color="#4caf50" />
+          <Text style={styles.offlineBadgeText}>Offline Mode</Text>
+        </View>
+        <Text style={styles.profileSubtext}>Your data is stored only on this device</Text>
       </View>
 
-      {/* Actions */}
       <View style={styles.actionsSection}>
         <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/settings')}>
           <View style={styles.actionIcon}>
@@ -82,111 +84,35 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Logout */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Ionicons name="swap-horizontal" size={24} color="#e94560" />
         <Text style={styles.logoutText}>Switch Profile</Text>
       </TouchableOpacity>
 
       <Text style={styles.footerText}>
-        Each profile has separate data.{'\n'}
-        Your hours and studies are private.
+        Each profile has separate data.{"\n"}
+        Your hours and studies are private to you.
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#16213e',
-    padding: 16,
-  },
-  profileCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 20,
-    padding: 32,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#e94560',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  profileName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  profileSubtext: {
-    fontSize: 14,
-    color: '#a0a0a0',
-    marginTop: 4,
-  },
-  actionsSection: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#0f3460',
-  },
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: '#a0a0a0',
-    marginTop: 2,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(233, 69, 96, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    gap: 8,
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#e94560',
-  },
-  footerText: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 12,
-    marginTop: 24,
-    lineHeight: 18,
-  },
+  container: { flex: 1, backgroundColor: '#16213e', padding: 16 },
+  profileCard: { backgroundColor: '#1a1a2e', borderRadius: 20, padding: 32, alignItems: 'center', marginBottom: 24 },
+  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#e94560', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  avatarText: { fontSize: 40, fontWeight: 'bold', color: '#fff' },
+  profileName: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
+  offlineBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76, 175, 80, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12, gap: 6 },
+  offlineBadgeText: { fontSize: 12, color: '#4caf50', fontWeight: '600' },
+  profileSubtext: { fontSize: 12, color: '#a0a0a0', marginTop: 8 },
+  actionsSection: { backgroundColor: '#1a1a2e', borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
+  actionItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#0f3460' },
+  actionIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  actionContent: { flex: 1 },
+  actionTitle: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  actionSubtitle: { fontSize: 12, color: '#a0a0a0', marginTop: 2 },
+  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(233, 69, 96, 0.1)', borderRadius: 12, padding: 16, gap: 8 },
+  logoutText: { fontSize: 16, fontWeight: '600', color: '#e94560' },
+  footerText: { textAlign: 'center', color: '#666', fontSize: 12, marginTop: 24, lineHeight: 18 },
 });

@@ -9,9 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useProfile } from './context/ProfileContext';
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+import { useProfile } from '../src/context/ProfileContext';
+import { getGoal, setGoal } from '../src/services/localStorage';
 
 const PRESET_GOALS = [15, 30, 50];
 
@@ -32,16 +31,11 @@ export default function SettingsScreen() {
   const fetchCurrentGoal = async () => {
     if (!profile) return;
     try {
-      const res = await fetch(
-        `${BACKEND_URL}/api/goals/${profile.id}/${currentYear}/${currentMonth}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data) {
-          setCurrentGoal(data.hours_goal);
-          if (!PRESET_GOALS.includes(data.hours_goal)) {
-            setCustomGoal(data.hours_goal.toString());
-          }
+      const goal = await getGoal(profile.id, currentYear, currentMonth);
+      if (goal) {
+        setCurrentGoal(goal.hoursGoal);
+        if (!PRESET_GOALS.includes(goal.hoursGoal)) {
+          setCustomGoal(goal.hoursGoal.toString());
         }
       }
     } catch (error) {
@@ -51,29 +45,14 @@ export default function SettingsScreen() {
     }
   };
 
-  const saveGoal = async (hours: number) => {
+  const saveGoalValue = async (hours: number) => {
     if (!profile) return;
     setSaving(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/goals`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile_id: profile.id,
-          year: currentYear,
-          month: currentMonth,
-          hours_goal: hours,
-        }),
-      });
-
-      if (res.ok) {
-        setCurrentGoal(hours);
-        Alert.alert('Success', `Monthly goal set to ${hours} hours`);
-      } else {
-        Alert.alert('Error', 'Failed to save goal');
-      }
+      await setGoal(profile.id, currentYear, currentMonth, hours);
+      setCurrentGoal(hours);
+      Alert.alert('Success', `Monthly goal set to ${hours} hours`);
     } catch (error) {
-      console.error('Error saving goal:', error);
       Alert.alert('Error', 'Failed to save goal');
     } finally {
       setSaving(false);
@@ -82,7 +61,7 @@ export default function SettingsScreen() {
 
   const handlePresetSelect = (hours: number) => {
     setCustomGoal('');
-    saveGoal(hours);
+    saveGoalValue(hours);
   };
 
   const handleCustomSave = () => {
@@ -91,7 +70,7 @@ export default function SettingsScreen() {
       Alert.alert('Invalid', 'Please enter a valid number of hours');
       return;
     }
-    saveGoal(hours);
+    saveGoalValue(hours);
   };
 
   if (loading) {
@@ -110,39 +89,28 @@ export default function SettingsScreen() {
           Set your target hours for {new Date().toLocaleString('default', { month: 'long' })} {currentYear}
         </Text>
 
-        {/* Current Goal Display */}
         <View style={styles.currentGoalCard}>
           <Ionicons name="flag" size={32} color="#e94560" />
           <Text style={styles.currentGoalValue}>{currentGoal} hours</Text>
           <Text style={styles.currentGoalLabel}>Current Goal</Text>
         </View>
 
-        {/* Preset Goals */}
         <Text style={styles.presetLabel}>Quick Select</Text>
         <View style={styles.presetRow}>
           {PRESET_GOALS.map((hours) => (
             <TouchableOpacity
               key={hours}
-              style={[
-                styles.presetButton,
-                currentGoal === hours && styles.presetButtonActive,
-              ]}
+              style={[styles.presetButton, currentGoal === hours && styles.presetButtonActive]}
               onPress={() => handlePresetSelect(hours)}
               disabled={saving}
             >
-              <Text
-                style={[
-                  styles.presetButtonText,
-                  currentGoal === hours && styles.presetButtonTextActive,
-                ]}
-              >
+              <Text style={[styles.presetButtonText, currentGoal === hours && styles.presetButtonTextActive]}>
                 {hours}h
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Custom Goal */}
         <Text style={styles.customLabel}>Or set custom goal</Text>
         <View style={styles.customRow}>
           <TextInput
@@ -154,28 +122,20 @@ export default function SettingsScreen() {
             keyboardType="number-pad"
           />
           <TouchableOpacity
-            style={[
-              styles.customButton,
-              !customGoal && styles.customButtonDisabled,
-            ]}
+            style={[styles.customButton, !customGoal && styles.customButtonDisabled]}
             onPress={handleCustomSave}
             disabled={!customGoal || saving}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.customButtonText}>Set</Text>
-            )}
+            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.customButtonText}>Set</Text>}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Info Section */}
       <View style={styles.infoSection}>
         <View style={styles.infoItem}>
-          <Ionicons name="information-circle" size={24} color="#0f3460" />
+          <Ionicons name="phone-portrait-outline" size={24} color="#4caf50" />
           <Text style={styles.infoText}>
-            The progress bar on the home screen will track your hours against this goal.
+            All your data is stored locally on this device. No internet required!
           </Text>
         </View>
       </View>
@@ -184,128 +144,27 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#16213e',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#16213e',
-  },
-  section: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#a0a0a0',
-    marginBottom: 24,
-  },
-  currentGoalCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  currentGoalValue: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 12,
-  },
-  currentGoalLabel: {
-    fontSize: 14,
-    color: '#a0a0a0',
-    marginTop: 4,
-  },
-  presetLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  presetRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  presetButton: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  presetButtonActive: {
-    borderColor: '#e94560',
-    backgroundColor: 'rgba(233, 69, 96, 0.1)',
-  },
-  presetButtonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#a0a0a0',
-  },
-  presetButtonTextActive: {
-    color: '#e94560',
-  },
-  customLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  customRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  customInput: {
-    flex: 1,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    color: '#fff',
-  },
-  customButton: {
-    backgroundColor: '#e94560',
-    borderRadius: 12,
-    paddingHorizontal: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  customButtonDisabled: {
-    backgroundColor: '#666',
-  },
-  customButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  infoSection: {
-    padding: 20,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#a0a0a0',
-    lineHeight: 20,
-  },
+  container: { flex: 1, backgroundColor: '#16213e' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#16213e' },
+  section: { padding: 20 },
+  sectionTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
+  sectionSubtitle: { fontSize: 14, color: '#a0a0a0', marginBottom: 24 },
+  currentGoalCard: { backgroundColor: '#1a1a2e', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 24 },
+  currentGoalValue: { fontSize: 36, fontWeight: 'bold', color: '#fff', marginTop: 12 },
+  currentGoalLabel: { fontSize: 14, color: '#a0a0a0', marginTop: 4 },
+  presetLabel: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 12 },
+  presetRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  presetButton: { flex: 1, backgroundColor: '#1a1a2e', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  presetButtonActive: { borderColor: '#e94560', backgroundColor: 'rgba(233, 69, 96, 0.1)' },
+  presetButtonText: { fontSize: 20, fontWeight: 'bold', color: '#a0a0a0' },
+  presetButtonTextActive: { color: '#e94560' },
+  customLabel: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 12 },
+  customRow: { flexDirection: 'row', gap: 12 },
+  customInput: { flex: 1, backgroundColor: '#1a1a2e', borderRadius: 12, padding: 16, fontSize: 18, color: '#fff' },
+  customButton: { backgroundColor: '#e94560', borderRadius: 12, paddingHorizontal: 32, justifyContent: 'center', alignItems: 'center' },
+  customButtonDisabled: { backgroundColor: '#666' },
+  customButtonText: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+  infoSection: { padding: 20 },
+  infoItem: { flexDirection: 'row', backgroundColor: '#1a1a2e', borderRadius: 12, padding: 16, gap: 12, alignItems: 'flex-start' },
+  infoText: { flex: 1, fontSize: 14, color: '#a0a0a0', lineHeight: 20 },
 });
