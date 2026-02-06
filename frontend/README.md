@@ -1,50 +1,111 @@
-# Welcome to your Expo app 👋
+# Ministry Hours Tracker
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile app for tracking preaching hours and Bible studies. Works completely offline with local storage.
 
-## Get started
+## Features
 
-1. Install dependencies
+- 📅 Calendar view with monthly progress bar
+- ⏱️ Track hours and minutes
+- 👥 Track Bible studies (unique count per month)
+- 🎯 Set monthly goals (15h, 30h, 50h presets or custom)
+- 📝 Add notes to entries
+- 🔐 PIN-protected profiles
+- 📤 Export/Import data for backup
+- 📱 Works 100% offline - no internet needed
 
-   ```bash
-   npm install
-   ```
+## Building the Android APK
 
-2. Start the app
+### Prerequisites
 
-   ```bash
-   npx expo start
-   ```
+1. Node.js 18+ installed
+2. Free Expo account (create at https://expo.dev)
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Steps to Build
 
 ```bash
-npm run reset-project
+# 1. Install EAS CLI globally
+npm install -g eas-cli
+
+# 2. Login to your Expo account
+eas login
+
+# 3. Navigate to the frontend folder
+cd frontend
+
+# 4. Configure the project (first time only)
+eas build:configure
+
+# 5. Build the APK
+eas build --platform android --profile preview
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### After Build Completes
 
-## Learn more
+1. Expo will provide a download link for your APK
+2. Download the APK file
+3. Transfer to your Android phone (email, Google Drive, etc.)
+4. On your phone, open the APK to install
+5. You may need to enable "Install from unknown sources" in settings
 
-To learn more about developing your project with Expo, look at the following resources:
+## Building for iOS (Requires $99/year Apple Developer Account)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+eas build --platform ios --profile preview
+```
 
-## Join the community
+## Project Structure
 
-Join our community of developers creating universal apps.
+```
+frontend/
+├── app/                    # Screens (expo-router)
+│   ├── index.tsx          # Entry redirect
+│   ├── login.tsx          # Profile login/create
+│   ├── home.tsx           # Main calendar view
+│   ├── day/[date].tsx     # Day entries view
+│   ├── settings.tsx       # Goal settings
+│   ├── history.tsx        # Monthly history
+│   ├── export.tsx         # Backup/restore
+│   └── profile.tsx        # Profile management
+├── src/
+│   ├── context/           # React context
+│   └── services/          # Local storage service
+├── app.json               # Expo configuration
+└── eas.json               # EAS Build configuration
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Customization
+
+### Change App Name
+Edit `app.json`:
+```json
+{
+  "expo": {
+    "name": "Your App Name",
+    "slug": "your-app-slug"
+  }
+}
+```
+
+### Change App Icon
+Replace these files with your own (1024x1024 PNG recommended):
+- `assets/images/icon.png`
+- `assets/images/adaptive-icon.png`
+
+### Change Colors
+Main colors are defined in each component's StyleSheet:
+- Primary: `#e94560` (pink/red)
+- Background: `#16213e` (dark blue)
+- Card: `#1a1a2e` (darker blue)
+- Accent: `#0f3460` (medium blue)
+
+## Data Storage
+
+All data is stored locally on the device using AsyncStorage:
+- `@ministry_profiles` - User profiles with hashed PINs
+- `@ministry_entries` - Time entries
+- `@ministry_goals` - Monthly goals
+- `@ministry_current_profile` - Currently logged in profile
+
+## License
+
+MIT License - Feel free to modify and distribute.
