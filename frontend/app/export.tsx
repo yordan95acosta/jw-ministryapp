@@ -13,17 +13,20 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import { useProfile } from './context/ProfileContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function ExportScreen() {
+  const { profile } = useProfile();
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
 
   const handleExport = async () => {
+    if (!profile) return;
     setExporting(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/export`);
+      const res = await fetch(`${BACKEND_URL}/api/export/${profile.id}`);
       if (!res.ok) {
         throw new Error('Failed to export data');
       }
@@ -75,6 +78,7 @@ export default function ExportScreen() {
   };
 
   const handleImport = async () => {
+    if (!profile) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/json',
@@ -113,6 +117,7 @@ export default function ExportScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profile_id: profile.id,
           entries: data.entries || [],
           goals: data.goals || [],
         }),
@@ -206,10 +211,10 @@ export default function ExportScreen() {
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>What gets exported?</Text>
             <Text style={styles.infoText}>
-              • All your time entries (hours, minutes, notes){"\n"}
-              • Study session records{"\n"}
-              • Monthly goals{"\n"}
-              • Entry dates and timestamps
+              {"\u2022"} All your time entries (hours, minutes, notes){"\n"}
+              {"\u2022"} Study session records{"\n"}
+              {"\u2022"} Monthly goals{"\n"}
+              {"\u2022"} Entry dates and timestamps
             </Text>
           </View>
         </View>
