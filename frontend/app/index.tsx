@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useProfile } from './context/ProfileContext';
+import { useProfile } from '../src/context/ProfileContext';
 
 export default function Index() {
   const router = useRouter();
