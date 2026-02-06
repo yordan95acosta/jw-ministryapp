@@ -2,7 +2,7 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
-import { ProfileProvider } from './context/ProfileContext';
+import { ProfileProvider } from '../src/context/ProfileContext';
 
 export default function RootLayout() {
   return (

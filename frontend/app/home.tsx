@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,30 +20,8 @@ import {
   getDay,
   isToday,
 } from 'date-fns';
-import { useProfile } from './context/ProfileContext';
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-
-interface MonthlySummary {
-  year: number;
-  month: number;
-  total_hours: number;
-  total_minutes: number;
-  unique_studies: number;
-  study_names: string[];
-  hours_goal: number;
-  entries_count: number;
-}
-
-interface Entry {
-  id: string;
-  profile_id: string;
-  date: string;
-  hours: number;
-  minutes: number;
-  study_person_name?: string;
-  notes?: string;
-}
+import { useProfile } from '../src/context/ProfileContext';
+import { getMonthlySummary, getEntries, MonthlySummary, Entry } from '../src/services/localStorage';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -61,19 +39,11 @@ export default function HomeScreen() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
 
-      // Fetch monthly summary
-      const summaryRes = await fetch(`${BACKEND_URL}/api/summary/${profile.id}/${year}/${month}`);
-      if (summaryRes.ok) {
-        const summaryData = await summaryRes.json();
-        setSummary(summaryData);
-      }
+      const summaryData = await getMonthlySummary(profile.id, year, month);
+      setSummary(summaryData);
 
-      // Fetch entries for the month
-      const entriesRes = await fetch(`${BACKEND_URL}/api/entries?profile_id=${profile.id}&year=${year}&month=${month}`);
-      if (entriesRes.ok) {
-        const entriesData = await entriesRes.json();
-        setEntries(entriesData);
-      }
+      const entriesData = await getEntries(profile.id, year, month);
+      setEntries(entriesData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -101,13 +71,9 @@ export default function HomeScreen() {
     setCurrentDate(addMonths(currentDate, 1));
   };
 
-  const getEntriesForDate = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return entries.filter((e) => e.date === dateStr);
-  };
-
   const hasEntriesForDate = (date: Date) => {
-    return getEntriesForDate(date).length > 0;
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return entries.some((e) => e.date === dateStr);
   };
 
   const renderCalendar = () => {
@@ -117,8 +83,6 @@ export default function HomeScreen() {
     const startDayOfWeek = getDay(monthStart);
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    // Add empty cells for days before month starts
     const emptyCells = Array(startDayOfWeek).fill(null);
 
     return (
@@ -167,7 +131,7 @@ export default function HomeScreen() {
 
   const progressPercentage = summary
     ? Math.min(
-        ((summary.total_hours + summary.total_minutes / 60) / summary.hours_goal) * 100,
+        ((summary.totalHours + summary.totalMinutes / 60) / summary.hoursGoal) * 100,
         100
       )
     : 0;
@@ -200,6 +164,9 @@ export default function HomeScreen() {
         <Text style={styles.profileName}>
           {profile?.name ? profile.name.charAt(0).toUpperCase() + profile.name.slice(1) : 'Unknown'}
         </Text>
+        <View style={styles.offlineBadge}>
+          <Text style={styles.offlineBadgeText}>Offline</Text>
+        </View>
         <Ionicons name="chevron-forward" size={20} color="#a0a0a0" />
       </TouchableOpacity>
 
@@ -222,7 +189,7 @@ export default function HomeScreen() {
         </View>
         <View style={styles.progressStats}>
           <Text style={styles.progressText}>
-            {summary?.total_hours || 0}h {summary?.total_minutes || 0}m / {summary?.hours_goal || 30}h
+            {summary?.totalHours || 0}h {summary?.totalMinutes || 0}m / {summary?.hoursGoal || 30}h
           </Text>
           <Text style={styles.progressPercent}>{progressPercentage.toFixed(0)}%</Text>
         </View>
@@ -232,12 +199,12 @@ export default function HomeScreen() {
       <View style={styles.studiesSection}>
         <View style={styles.studyCard}>
           <Ionicons name="people" size={32} color="#e94560" />
-          <Text style={styles.studyNumber}>{summary?.unique_studies || 0}</Text>
+          <Text style={styles.studyNumber}>{summary?.uniqueStudies || 0}</Text>
           <Text style={styles.studyLabel}>Unique Studies</Text>
         </View>
         <View style={styles.studyCard}>
           <Ionicons name="calendar" size={32} color="#0f3460" />
-          <Text style={styles.studyNumber}>{summary?.entries_count || 0}</Text>
+          <Text style={styles.studyNumber}>{summary?.entriesCount || 0}</Text>
           <Text style={styles.studyLabel}>Entries</Text>
         </View>
       </View>
@@ -314,6 +281,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  offlineBadge: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  offlineBadgeText: {
+    fontSize: 10,
+    color: '#4caf50',
+    fontWeight: '600',
   },
   monthNav: {
     flexDirection: 'row',

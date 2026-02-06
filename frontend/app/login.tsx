@@ -13,21 +13,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useProfile } from './context/ProfileContext';
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-
-interface ExistingProfile {
-  id: string;
-  name: string;
-}
+import { useProfile } from '../src/context/ProfileContext';
+import { getProfiles, createProfile, verifyPin, Profile } from '../src/services/localStorage';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setProfile } = useProfile();
   const [mode, setMode] = useState<'select' | 'create' | 'login'>('select');
-  const [existingProfiles, setExistingProfiles] = useState<ExistingProfile[]>([]);
-  const [selectedProfile, setSelectedProfile] = useState<ExistingProfile | null>(null);
+  const [existingProfiles, setExistingProfiles] = useState<Profile[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,11 +33,8 @@ export default function LoginScreen() {
 
   const fetchProfiles = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/profiles`);
-      if (res.ok) {
-        const data = await res.json();
-        setExistingProfiles(data);
-      }
+      const profiles = await getProfiles();
+      setExistingProfiles(profiles);
     } catch (error) {
       console.error('Error fetching profiles:', error);
     } finally {
@@ -63,23 +54,13 @@ export default function LoginScreen() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/profiles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), pin }),
-      });
-
-      if (res.ok) {
-        const profile = await res.json();
+      const profile = await createProfile(name.trim(), pin);
+      if (profile) {
         setProfile({ id: profile.id, name: profile.name });
         router.replace('/home');
-      } else {
-        const error = await res.json();
-        Alert.alert('Error', error.detail || 'Failed to create profile');
       }
-    } catch (error) {
-      console.error('Error creating profile:', error);
-      Alert.alert('Error', 'Failed to create profile');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create profile');
     } finally {
       setSubmitting(false);
     }
@@ -97,22 +78,14 @@ export default function LoginScreen() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/profiles/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedProfile.name, pin }),
-      });
-
-      if (res.ok) {
-        const profile = await res.json();
-        setProfile({ id: profile.id, name: profile.name });
+      const isValid = await verifyPin(selectedProfile.id, pin);
+      if (isValid) {
+        setProfile({ id: selectedProfile.id, name: selectedProfile.name });
         router.replace('/home');
       } else {
-        const error = await res.json();
-        Alert.alert('Error', error.detail || 'Incorrect PIN');
+        Alert.alert('Error', 'Incorrect PIN');
       }
     } catch (error) {
-      console.error('Error logging in:', error);
       Alert.alert('Error', 'Failed to login');
     } finally {
       setSubmitting(false);
@@ -138,6 +111,7 @@ export default function LoginScreen() {
           <Ionicons name="book" size={64} color="#e94560" />
           <Text style={styles.title}>Ministry Hours</Text>
           <Text style={styles.subtitle}>Track your preaching and studies</Text>
+          <Text style={styles.offlineTag}>Offline Mode - No Internet Needed</Text>
         </View>
 
         {mode === 'select' && (
@@ -325,6 +299,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginTop: 8,
+  },
+  offlineTag: {
+    fontSize: 12,
+    color: '#4caf50',
+    marginTop: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   selectContainer: {
     flex: 1,
