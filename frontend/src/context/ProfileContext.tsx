@@ -15,14 +15,13 @@ interface ProfileContextType {
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
-const PROFILE_STORAGE_KEY = '@ministry_hours_profile';
+const PROFILE_STORAGE_KEY = '@ministry_current_profile';
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfileState] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load saved profile on app start
     loadProfile();
   }, []);
 
