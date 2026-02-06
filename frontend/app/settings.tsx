@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useProfile } from './context/ProfileContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const PRESET_GOALS = [15, 30, 50];
 
 export default function SettingsScreen() {
+  const { profile } = useProfile();
   const [currentGoal, setCurrentGoal] = useState<number>(30);
   const [customGoal, setCustomGoal] = useState('');
   const [loading, setLoading] = useState(true);
@@ -25,12 +27,13 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     fetchCurrentGoal();
-  }, []);
+  }, [profile]);
 
   const fetchCurrentGoal = async () => {
+    if (!profile) return;
     try {
       const res = await fetch(
-        `${BACKEND_URL}/api/goals/${currentYear}/${currentMonth}`
+        `${BACKEND_URL}/api/goals/${profile.id}/${currentYear}/${currentMonth}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -49,12 +52,14 @@ export default function SettingsScreen() {
   };
 
   const saveGoal = async (hours: number) => {
+    if (!profile) return;
     setSaving(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/goals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profile_id: profile.id,
           year: currentYear,
           month: currentMonth,
           hours_goal: hours,
