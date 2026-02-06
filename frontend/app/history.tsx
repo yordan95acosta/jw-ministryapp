@@ -8,6 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useProfile } from './context/ProfileContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -28,13 +29,15 @@ const MONTH_NAMES = [
 ];
 
 export default function HistoryScreen() {
+  const { profile } = useProfile();
   const [history, setHistory] = useState<MonthlySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchHistory = async () => {
+    if (!profile) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/history`);
+      const res = await fetch(`${BACKEND_URL}/api/history/${profile.id}`);
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -49,7 +52,7 @@ export default function HistoryScreen() {
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [profile]);
 
   const onRefresh = () => {
     setRefreshing(true);
